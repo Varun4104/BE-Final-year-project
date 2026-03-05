@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+numpy
+requests
+pypdf
+sentence-transformers
+greenlet
+sqlalchemy[asyncio]
+asyncpg
+python-dotenv
