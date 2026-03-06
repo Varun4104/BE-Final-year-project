@@ -22,6 +22,7 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { useSearch } from "@/components/search-provider"
+import { API_URL as API_BASE_URL } from "@/lib/config"
 
 interface SearchResult {
   id: string
@@ -40,7 +41,6 @@ interface SearchResult {
   venue?: string
 }
 
-const API_BASE_URL = "http://localhost:8000"
 
 export function SearchView() {
   const { searchQuery, setSearchQuery, isSearching, setIsSearching } = useSearch()

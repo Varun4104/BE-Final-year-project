@@ -19,6 +19,7 @@ import {
   Brain,
   Zap,
 } from "lucide-react"
+import { API_URL } from "@/lib/config"
 
 interface Recommendation {
   id: string
@@ -53,7 +54,7 @@ export function RecommendationsView() {
 
   const fetchRecommendations = async () => {
     try {
-      const res = await fetch("http://localhost:8000/recommendations")
+      const res = await fetch(`${API_URL}/recommendations`)
       const data = await res.json()
       // Map API response to Recommendation interface
       const mappedData = data.map((item: any) => ({

@@ -20,6 +20,7 @@ import {
   Zap,
   AlertCircle,
 } from "lucide-react"
+import { API_URL } from "@/lib/config"
 
 interface SearchResult {
   id: string
@@ -30,8 +31,6 @@ interface SearchResult {
   keywords?: string[]
   year?: number
 }
-
-const API_URL = "http://localhost:8000"
 
 export function VoiceSearchView() {
   const [searchQuery, setSearchQuery] = useState("")

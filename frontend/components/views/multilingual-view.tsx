@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Languages, Search, Volume2, Copy, RotateCcw, FileText, BookOpen, Globe } from "lucide-react"
+import { API_URL } from "@/lib/config"
 
 interface SearchResult {
   id: string
@@ -56,7 +57,7 @@ export function MultilingualView() {
     setIsTranslating(true)
 
     try {
-      const response = await fetch("http://localhost:8000/translate", {
+      const response = await fetch(`${API_URL}/translate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -95,7 +96,7 @@ export function MultilingualView() {
       formData.append("query", searchQuery)
       formData.append("search_type", "semantic")
 
-      const response = await fetch("http://localhost:8000/search", {
+      const response = await fetch(`${API_URL}/search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",

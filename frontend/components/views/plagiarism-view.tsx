@@ -18,6 +18,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
+import { API_URL as API_BASE_URL } from "@/lib/config"
 
 interface TopMatch {
   file_name: string
@@ -34,7 +35,6 @@ interface PlagiarismResult {
   status: "analyzing" | "passed" | "rejected" | "pending_review"
 }
 
-const API_BASE_URL = "http://localhost:8000"
 
 export function PlagiarismView() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])

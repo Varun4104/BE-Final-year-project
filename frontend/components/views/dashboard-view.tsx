@@ -22,6 +22,7 @@ import {
   Star,
   FileText,
 } from "lucide-react";
+import { API_URL } from "@/lib/config";
 
 export function DashboardView() {
   const [stats, setStats] = useState({
@@ -36,13 +37,13 @@ export function DashboardView() {
     const fetchData = async () => {
       try {
         const statsRes = await fetch(
-          "http://localhost:8000/stats",
+          `${API_URL}/stats`,
         );
         const statsData = await statsRes.json();
         setStats(statsData);
 
         const papersRes = await fetch(
-          "http://localhost:8000/all_pdfs",
+          `${API_URL}/all_pdfs`,
         );
         const papersData = await papersRes.json();
         setRecentPapers(

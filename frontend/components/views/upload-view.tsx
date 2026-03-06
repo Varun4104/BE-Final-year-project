@@ -12,6 +12,7 @@ import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2 } from "lucide-r
 import { useDropzone } from "react-dropzone"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { MetadataDialog } from "../metadata-dialog"
+import { API_URL as API_BASE_URL } from "@/lib/config"
 
 interface UploadedFile {
   id: string
@@ -38,7 +39,6 @@ interface PendingFile {
   id: string
 }
 
-const API_BASE_URL = "http://localhost:8000"
 
 export function UploadView() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])

@@ -8,9 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Users, ArrowLeft, Send, FileText } from "lucide-react"
-
-const API_URL = "http://localhost:8000"
-const WS_URL = "ws://localhost:8000"
+import { API_URL, WS_URL } from "@/lib/config"
 
 interface Paper {
   file_id: string

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BookOpen, Search, FileText, Sparkles, Clock, Star, ChevronDown, ChevronUp, CheckCircle } from "lucide-react"
+import { API_URL } from "@/lib/config"
 
 interface Paper {
   id: string
@@ -59,7 +60,7 @@ export function LibraryView() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch("http://localhost:8000/all_pdfs")
+      const response = await fetch(`${API_URL}/all_pdfs`)
 
       if (!response.ok) {
         throw new Error("Failed to fetch papers from library")
@@ -100,7 +101,7 @@ export function LibraryView() {
     try {
       const formData = new URLSearchParams()
       formData.append("file_id", paperId)
-      const response = await fetch("http://localhost:8000/generate_summary", {
+      const response = await fetch(`${API_URL}/generate_summary`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData.toString(),
@@ -136,7 +137,7 @@ export function LibraryView() {
     try {
       const formData = new URLSearchParams()
       formData.append("status", status)
-      await fetch(`http://localhost:8000/papers/${paperId}/status`, {
+      await fetch(`${API_URL}/papers/${paperId}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: formData.toString(),
