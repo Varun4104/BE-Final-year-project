@@ -21,10 +21,13 @@ import {
   Clock,
   Star,
   FileText,
+  MessageSquare,
 } from "lucide-react";
 import { API_URL } from "@/lib/config";
+import { useSearch } from "@/components/search-provider";
 
 export function DashboardView() {
+  const { navigate } = useSearch();
   const [stats, setStats] = useState({
     totalPapers: 0,
     readPapers: 0,
@@ -36,23 +39,20 @@ export function DashboardView() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statsRes = await fetch(
-          `${API_URL}/stats`,
-        );
+        const statsRes = await fetch(`${API_URL}/stats`);
         const statsData = await statsRes.json();
         setStats(statsData);
 
-        const papersRes = await fetch(
-          `${API_URL}/all_pdfs`,
-        );
+        const papersRes = await fetch(`${API_URL}/all_pdfs`);
         const papersData = await papersRes.json();
         setRecentPapers(
-          papersData.pdfs.slice(0, 3).map((p: any) => ({
-            title: p.title,
-            authors: p.author,
+          papersData.pdfs.slice(0, 5).map((p: any) => ({
+            title: p.title || "Untitled",
+            authors: p.author || "Unknown Author",
             year: p.year,
             status: p.status,
-            summary: "No summary available",
+            abstract: p.abstract || (p.keywords?.length > 0 ? `Keywords: ${p.keywords.join(", ")}` : "No abstract available"),
+            file_id: p.file_id,
           })),
         );
       } catch (error) {
@@ -62,26 +62,34 @@ export function DashboardView() {
     fetchData();
   }, []);
 
+  const readPercent = stats.totalPapers > 0
+    ? Math.round((stats.readPapers / stats.totalPapers) * 100)
+    : 0;
+
   const quickActions = [
     {
       icon: Upload,
       label: "Upload New Paper",
       description: "Add papers to your library",
+      view: "upload" as const,
     },
     {
       icon: Search,
       label: "Smart Search",
       description: "Find papers with AI assistance",
+      view: "search" as const,
     },
     {
       icon: Lightbulb,
       label: "Get Recommendations",
       description: "Discover relevant papers",
+      view: "recommendations" as const,
     },
     {
-      icon: FileText,
-      label: "Generate Summary",
-      description: "AI-powered paper summaries",
+      icon: MessageSquare,
+      label: "Chat with Paper",
+      description: "Ask questions with AI",
+      view: "chat" as const,
     },
   ];
 
@@ -119,14 +127,10 @@ export function DashboardView() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.readPapers}</div>
             <div className="mt-2">
-              <Progress
-                value={(stats.readPapers / stats.totalPapers) * 100}
-                className="h-2"
-              />
+              <Progress value={readPercent} className="h-2" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {Math.round((stats.readPapers / stats.totalPapers) * 100)}%
-              completion rate
+              {readPercent}% completion rate
             </p>
           </CardContent>
         </Card>
@@ -179,6 +183,7 @@ export function DashboardView() {
                   key={index}
                   variant="outline"
                   className="h-auto p-4 flex flex-col items-center gap-2 hover:bg-accent hover:text-accent-foreground bg-transparent"
+                  onClick={() => navigate(action.view)}
                 >
                   <Icon className="h-6 w-6" />
                   <div className="text-center">
@@ -209,39 +214,50 @@ export function DashboardView() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {recentPapers.map((paper, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-balance">{paper.title}</h3>
-                    <Badge
-                      variant={
-                        paper.status === "read"
-                          ? "default"
-                          : paper.status === "reading"
-                            ? "secondary"
-                            : "outline"
-                      }
-                    >
-                      {paper.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {paper.authors} • {paper.year}
-                  </p>
-                  <p className="text-sm text-pretty">{paper.summary}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    2 days ago
-                  </span>
-                </div>
+            {recentPapers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>No papers yet. <button className="text-primary hover:underline" onClick={() => navigate("upload")}>Upload your first paper</button></p>
               </div>
-            ))}
+            ) : (
+              recentPapers.map((paper, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-medium text-balance">{paper.title}</h3>
+                      <Badge
+                        variant={
+                          paper.status === "read"
+                            ? "default"
+                            : paper.status === "reading"
+                              ? "secondary"
+                              : "outline"
+                        }
+                      >
+                        {paper.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {paper.authors} • {paper.year}
+                    </p>
+                    <p className="text-sm text-pretty text-muted-foreground line-clamp-2">{paper.abstract}</p>
+                    <div className="flex gap-2 pt-1">
+                      <Button size="sm" variant="outline" onClick={() => navigate("chat")}>
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        Chat
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => navigate("library")}>
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        Library
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

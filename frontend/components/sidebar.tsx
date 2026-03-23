@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Upload, Search, BookOpen, Lightbulb, Settings, User, Shield, Globe, Mic, Users } from "lucide-react"
+import { LayoutDashboard, Upload, Search, BookOpen, Lightbulb, Settings, User, Shield, Globe, Mic, Users, MessageSquare, UserSearch } from "lucide-react"
 
 interface SidebarProps {
   activeView:
@@ -15,6 +15,8 @@ interface SidebarProps {
     | "multilingual"
     | "voice-search"
     | "collaborate"
+    | "chat"
+    | "orcid"
   onViewChange: (
     view:
       | "dashboard"
@@ -25,7 +27,9 @@ interface SidebarProps {
       | "plagiarism"
       | "multilingual"
       | "voice-search"
-      | "collaborate",
+      | "collaborate"
+      | "chat"
+      | "orcid",
   ) => void
 }
 
@@ -40,6 +44,8 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
     { id: "multilingual" as const, label: "Multilingual", icon: Globe },
     { id: "voice-search" as const, label: "Voice Search", icon: Mic },
     { id: "collaborate" as const, label: "Collaborate", icon: Users },
+    { id: "chat" as const, label: "Chat with Paper", icon: MessageSquare },
+    { id: "orcid" as const, label: "Researcher Profiles", icon: UserSearch },
   ]
 
   return (

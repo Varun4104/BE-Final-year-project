@@ -18,8 +18,11 @@ import {
   Target,
   Brain,
   Zap,
+  Search,
 } from "lucide-react"
+import { Input } from "@/components/ui/input"
 import { API_URL } from "@/lib/config"
+import { useSearch } from "@/components/search-provider"
 
 interface Recommendation {
   id: string
@@ -47,14 +50,18 @@ interface RecommendationCategory {
 }
 
 export function RecommendationsView() {
+  const { navigate } = useSearch()
 
   const [activeCategory, setActiveCategory] = useState("all")
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isFetching, setIsFetching] = useState(false)
+  const [domain, setDomain] = useState("machine learning")
   const [mockRecommendations, setRecommendations] = useState<Recommendation[]>([])
 
   const fetchRecommendations = async () => {
+    setIsFetching(true)
     try {
-      const res = await fetch(`${API_URL}/recommendations`)
+      const res = await fetch(`${API_URL}/recommendations?domain=${encodeURIComponent(domain)}`)
       const data = await res.json()
       // Map API response to Recommendation interface
       const mappedData = data.map((item: any) => ({
@@ -66,12 +73,15 @@ export function RecommendationsView() {
       }))
       setRecommendations(mappedData)
     } catch (error) {
-       console.error("Error fetching recommendations:", error)
+      console.error("Error fetching recommendations:", error)
+    } finally {
+      setIsFetching(false)
     }
   }
 
   useEffect(() => {
     fetchRecommendations()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const categories: RecommendationCategory[] = [
@@ -119,9 +129,7 @@ export function RecommendationsView() {
 
   const refreshRecommendations = () => {
     setIsRefreshing(true)
-    setTimeout(() => {
-      setIsRefreshing(false)
-    }, 2000)
+    fetchRecommendations().finally(() => setIsRefreshing(false))
   }
 
   const getCategoryColor = (category: string) => {
@@ -165,6 +173,30 @@ export function RecommendationsView() {
           </Button>
         </div>
       </div>
+
+      {/* Domain Search */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Search Research Domain
+          </CardTitle>
+          <CardDescription>Fetch latest papers from arXiv for your research domain</CardDescription>
+        </CardHeader>
+        <CardContent className="flex gap-3">
+          <Input
+            value={domain}
+            onChange={(e) => setDomain(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && fetchRecommendations()}
+            placeholder="e.g. machine learning, AI healthcare, NLP..."
+            className="flex-1"
+          />
+          <Button onClick={fetchRecommendations} disabled={isFetching} className="gap-2 shrink-0">
+            {isFetching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            Search arXiv
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Recommendation Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -312,22 +344,24 @@ export function RecommendationsView() {
                               </p>
                             </div>
 
-                            <div className="flex items-center gap-2 pt-2">
-                              <Button size="sm">
+                            <div className="flex items-center gap-2 pt-2 flex-wrap">
+                              <Button size="sm" onClick={() => navigate("upload")}>
                                 <BookOpen className="h-4 w-4 mr-1" />
-                                Add to Library
+                                Upload to Library
                               </Button>
-                              <Button variant="outline" size="sm">
-                                Generate Summary
+                              <Button variant="outline" size="sm" onClick={() => navigate("plagiarism")}>
+                                Check Similarity
                               </Button>
-                              <Button variant="outline" size="sm">
+                              <Button variant="outline" size="sm" onClick={() => navigate("search")}>
                                 Find Similar
                               </Button>
                               {paper.doi && (
-                                <Button variant="outline" size="sm">
-                                  <ExternalLink className="h-4 w-4 mr-1" />
-                                  View Paper
-                                </Button>
+                                <a href={paper.doi} target="_blank" rel="noopener noreferrer">
+                                  <Button variant="outline" size="sm">
+                                    <ExternalLink className="h-4 w-4 mr-1" />
+                                    View on arXiv
+                                  </Button>
+                                </a>
                               )}
                             </div>
                           </div>

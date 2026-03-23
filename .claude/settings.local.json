@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''main.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
+      "Bash(python:*)",
+      "Bash(npx tsc:*)"
+    ]
+  }
+}

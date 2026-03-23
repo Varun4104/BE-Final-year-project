@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2 } from "lucide-react"
+import { Upload, FileText, X, CheckCircle, AlertCircle, Loader2, BookOpen, MessageSquare } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { MetadataDialog } from "../metadata-dialog"
 import { API_URL as API_BASE_URL } from "@/lib/config"
+import { useSearch } from "@/components/search-provider"
 
 interface UploadedFile {
   id: string
@@ -41,6 +42,7 @@ interface PendingFile {
 
 
 export function UploadView() {
+  const { navigate } = useSearch()
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
@@ -413,12 +415,17 @@ export function UploadView() {
                           readOnly
                         />
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" disabled>
-                          Save to Library
+                      <div className="flex gap-2 flex-wrap">
+                        <Button size="sm" variant="default" onClick={() => navigate("library")}>
+                          <BookOpen className="h-3 w-3 mr-1" />
+                          View in Library
                         </Button>
-                        <Button variant="outline" size="sm">
-                          View in Search
+                        <Button size="sm" variant="outline" onClick={() => navigate("chat")}>
+                          <MessageSquare className="h-3 w-3 mr-1" />
+                          Chat with Paper
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => navigate("search")}>
+                          Search Papers
                         </Button>
                       </div>
                     </div>

@@ -42,6 +42,7 @@ interface PDFDocument {
   chunk_count: number
   abstract?: string
   created_at?: string
+  status?: string
 }
 
 export function LibraryView() {

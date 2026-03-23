@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, AlertTriangle, CheckCircle, X, Eye, Download, Trash2, Loader } from "lucide-react"
+import { Upload, FileText, AlertTriangle, CheckCircle, X, Eye, Download, Trash2, Loader, Globe, ExternalLink } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -27,11 +27,23 @@ interface TopMatch {
   excerpt: string
 }
 
+interface WebMatch {
+  source: string
+  title: string
+  authors?: string[]
+  similarity: number
+  excerpt: string
+  url: string | null
+}
+
 interface PlagiarismResult {
   filename: string
   file_id: string
   plagiarism_score: number
+  local_score?: number
+  web_score?: number
   top_matches: TopMatch[]
+  web_matches?: WebMatch[]
   status: "analyzing" | "passed" | "rejected" | "pending_review"
 }
 
@@ -65,44 +77,39 @@ export function PlagiarismView() {
     event.preventDefault()
   }, [])
 
-  const analyzePlagiarism = async (file: File) => {
+  const analyzePlagiarism = async (file: File, useWeb = false) => {
     setIsAnalyzing(true)
     setError(null)
 
     try {
-      console.log("[v0] Starting plagiarism analysis for:", file.name)
-
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch(`${API_BASE_URL}/check_plagiarism`, {
-        method: "POST",
-        body: formData,
-      })
+      const endpoint = useWeb ? `${API_BASE_URL}/check_plagiarism_web` : `${API_BASE_URL}/check_plagiarism`
+      const response = await fetch(endpoint, { method: "POST", body: formData })
 
       if (!response.ok) {
         throw new Error(`API error: ${response.statusText}`)
       }
 
       const data = await response.json()
-      console.log("[v0] API Response:", data)
 
       const result: PlagiarismResult = {
         filename: file.name,
         file_id: data.file_id || "",
         plagiarism_score: data.plagiarism_score || 0,
+        local_score: data.local_score,
+        web_score: data.web_score,
         top_matches: data.top_matches || [],
+        web_matches: data.web_matches || [],
         status: (data.plagiarism_score || 0) > 20 ? "pending_review" : "passed",
       }
 
-      console.log("[v0] Plagiarism result:", result)
       setResults((prev) => [...prev, result])
-
       setCurrentResult(result)
       setShowDecisionDialog(true)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to analyze plagiarism"
-      console.error("[v0] Error analyzing file:", err)
       setError(errorMessage)
     } finally {
       setIsAnalyzing(false)
@@ -249,15 +256,23 @@ export function PlagiarismView() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => analyzePlagiarism(file)} disabled={isAnalyzing} className="gap-2">
+                    <Button size="sm" onClick={() => analyzePlagiarism(file, false)} disabled={isAnalyzing} className="gap-2">
                       {isAnalyzing ? (
                         <>
                           <Loader className="h-4 w-4 animate-spin" />
                           Analyzing...
                         </>
                       ) : (
-                        "Analyze"
+                        "Local Check"
                       )}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => analyzePlagiarism(file, true)} disabled={isAnalyzing} className="gap-2">
+                      {isAnalyzing ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Globe className="h-4 w-4" />
+                      )}
+                      Web Check
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => removeFile(index)}>
                       <X className="h-4 w-4" />
@@ -377,10 +392,22 @@ export function PlagiarismView() {
                   </Alert>
                 )}
 
+                {/* Score breakdown for web checks */}
+                {(result.local_score !== undefined || result.web_score !== undefined) && (
+                  <div className="flex gap-4 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
+                    {result.local_score !== undefined && (
+                      <span>Library: <strong>{result.local_score}%</strong></span>
+                    )}
+                    {result.web_score !== undefined && (
+                      <span>Web (arXiv): <strong>{result.web_score}%</strong></span>
+                    )}
+                  </div>
+                )}
+
                 {result.top_matches && result.top_matches.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium text-foreground mb-2">
-                      Matched Papers ({result.top_matches.length})
+                      Library Matches ({result.top_matches.length})
                     </h4>
                     <div className="space-y-2">
                       {result.top_matches.map((match, matchIndex) => (
@@ -393,6 +420,42 @@ export function PlagiarismView() {
                           <p className="text-sm text-muted-foreground italic line-clamp-2">
                             "{match.excerpt.substring(0, 100)}..."
                           </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {result.web_matches && result.web_matches.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
+                      <Globe className="h-3.5 w-3.5" />
+                      Web Sources — arXiv ({result.web_matches.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {result.web_matches.map((match, matchIndex) => (
+                        <div key={matchIndex} className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 p-3 rounded-md">
+                          <div className="flex items-start justify-between mb-1 gap-2">
+                            <h5 className="font-medium text-foreground text-sm">{match.title}</h5>
+                            <Badge variant="outline" className="shrink-0">{match.similarity}% match</Badge>
+                          </div>
+                          {match.authors && match.authors.length > 0 && (
+                            <p className="text-xs text-muted-foreground mb-1">{match.authors.join(", ")}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground italic mb-2 line-clamp-2">
+                            "{match.excerpt}"
+                          </p>
+                          {match.url && (
+                            <a
+                              href={match.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              View on arXiv
+                            </a>
+                          )}
                         </div>
                       ))}
                     </div>

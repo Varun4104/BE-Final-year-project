@@ -2,6 +2,19 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react"
 
+type ViewType =
+  | "dashboard"
+  | "upload"
+  | "search"
+  | "library"
+  | "recommendations"
+  | "plagiarism"
+  | "multilingual"
+  | "voice-search"
+  | "collaborate"
+  | "chat"
+  | "orcid"
+
 interface SearchContextType {
   searchQuery: string
   setSearchQuery: (query: string) => void
@@ -9,14 +22,21 @@ interface SearchContextType {
   setSearchResults: (results: any[]) => void
   isSearching: boolean
   setIsSearching: (searching: boolean) => void
+  navigate: (view: ViewType) => void
+  setNavigate: (fn: (view: ViewType) => void) => void
 }
 
 const SearchContext = createContext<SearchContextType | undefined>(undefined)
 
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [searchResults, setSearchResults] = useState([])
+  const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [navigateFn, setNavigateFn] = useState<(view: ViewType) => void>(() => () => {})
+
+  const setNavigate = (fn: (view: ViewType) => void) => {
+    setNavigateFn(() => fn)
+  }
 
   return (
     <SearchContext.Provider
@@ -27,6 +47,8 @@ export function SearchProvider({ children }: { children: ReactNode }) {
         setSearchResults,
         isSearching,
         setIsSearching,
+        navigate: navigateFn,
+        setNavigate,
       }}
     >
       {children}
@@ -41,3 +63,5 @@ export function useSearch() {
   }
   return context
 }
+
+export type { ViewType }

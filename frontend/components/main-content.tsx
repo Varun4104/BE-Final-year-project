@@ -9,6 +9,8 @@ import { PlagiarismView } from "@/components/views/plagiarism-view"
 import { MultilingualView } from "@/components/views/multilingual-view"
 import { VoiceSearchView } from "@/components/views/voice-search-view"
 import { CollaborateView } from "@/components/views/collaborate-view"
+import { ChatView } from "@/components/views/chat-view"
+import { OrcidView } from "@/components/views/orcid-view"
 
 interface MainContentProps {
   activeView:
@@ -21,6 +23,8 @@ interface MainContentProps {
     | "multilingual"
     | "voice-search"
     | "collaborate"
+    | "chat"
+    | "orcid"
 }
 
 export function MainContent({ activeView }: MainContentProps) {
@@ -35,6 +39,8 @@ export function MainContent({ activeView }: MainContentProps) {
       {activeView === "multilingual" && <MultilingualView />}
       {activeView === "voice-search" && <VoiceSearchView />}
       {activeView === "collaborate" && <CollaborateView />}
+      {activeView === "chat" && <ChatView />}
+      {activeView === "orcid" && <OrcidView />}
     </main>
   )
 }
