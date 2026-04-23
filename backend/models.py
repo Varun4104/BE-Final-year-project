@@ -1,5 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Float, ARRAY, JSON
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Float, JSON
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
@@ -16,7 +15,7 @@ class Paper(Base):
     file_path = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(String, default="unread")  # read, unread, reading
-    keywords = Column(ARRAY(String), default=[])
+    keywords = Column(JSON, default=[])
     
     chunks = relationship("Chunk", back_populates="paper", cascade="all, delete-orphan")
 
@@ -26,7 +25,7 @@ class Chunk(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     paper_id = Column(String, ForeignKey("papers.id"))
     content = Column(Text, nullable=False)
-    embedding = Column(ARRAY(Float), nullable=True)  # storing embedding as float array
+    embedding = Column(JSON, nullable=True)  # storing embedding as JSON list
 
     paper = relationship("Paper", back_populates="chunks")
 

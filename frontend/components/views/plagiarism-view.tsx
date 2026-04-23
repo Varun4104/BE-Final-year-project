@@ -34,6 +34,8 @@ interface WebMatch {
   similarity: number
   excerpt: string
   url: string | null
+  analysis?: string
+  verdict?: string
 }
 
 interface PlagiarismResult {
@@ -445,6 +447,26 @@ export function PlagiarismView() {
                           <p className="text-xs text-muted-foreground italic mb-2 line-clamp-2">
                             "{match.excerpt}"
                           </p>
+                          {match.analysis && (
+                            <div className="mt-2 mb-2 p-2 bg-white/50 dark:bg-black/20 rounded border border-blue-100 dark:border-blue-900/50">
+                              <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
+                                <Loader className="h-2.5 w-2.5" /> AI Analysis — {match.verdict}
+                              </p>
+                              <p className="text-xs text-foreground leading-relaxed">
+                                {match.analysis}
+                              </p>
+                            </div>
+                          )}
+                          {match.analysis && (
+                            <div className="mt-2 mb-2 p-2 bg-white/50 dark:bg-black/20 rounded border border-blue-100 dark:border-blue-900/50">
+                              <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
+                                <Loader className="h-2.5 w-2.5" /> AI Analysis — {match.verdict}
+                              </p>
+                              <p className="text-xs text-foreground leading-relaxed">
+                                {match.analysis}
+                              </p>
+                            </div>
+                          )}
                           {match.url && (
                             <a
                               href={match.url}
