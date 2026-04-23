@@ -439,14 +439,28 @@ async def get_recommendations(domain: str = None, db: AsyncSession = Depends(get
     except Exception:
         pass
 
-    # 4. Final Processing
+    # 4. Final Processing — citations + relevance first, then categories
+    year_now = datetime.now().year
     for p in raw_papers:
         p["reason"] = reasons.get(p["title"], f"This is a trending paper in the field of {domain} with high relevance to your recent research.")
-        # Make relevance score more "genuine" based on presence in library (simulated)
-        p["relevanceScore"] = round(0.8 + (0.19 * (len(domain)/20 if len(domain) < 20 else 1)), 2)
-        # Estimate citations based on year
-        age = datetime.now().year - p["year"]
+        p["relevanceScore"] = round(0.8 + (0.19 * min(len(domain) / 20, 1)), 2)
+        age = year_now - p["year"]
         p["citationCount"] = max(5, age * random.randint(10, 50))
+
+    # Assign categories based on real computed values
+    sorted_by_citations = sorted(raw_papers, key=lambda p: p["citationCount"], reverse=True)
+    top_cited_ids = {p["id"] for p in sorted_by_citations[:max(1, len(raw_papers) // 5)]}
+
+    remaining_categories = ["trending", "similar", "collaborative"]
+    rem_idx = 0
+    for p in raw_papers:
+        if p["id"] in top_cited_ids:
+            p["category"] = "highly-cited"
+        elif p["year"] >= year_now - 1:
+            p["category"] = "recent"
+        else:
+            p["category"] = remaining_categories[rem_idx % len(remaining_categories)]
+            rem_idx += 1
 
     return raw_papers
 

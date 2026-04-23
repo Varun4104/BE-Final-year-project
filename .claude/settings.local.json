@@ -3,7 +3,19 @@
     "allow": [
       "Bash(python -c \"import ast; ast.parse\\(open\\(''main.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
       "Bash(python:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(docker info *)",
+      "Bash(pnpm --version)",
+      "Bash(npm --version)",
+      "Bash(pg_isready)",
+      "Bash(psql -U varun -d research_db -c \"\\\\q\")",
+      "Bash(psql -U postgres -c \"\\\\l\")",
+      "Bash(psql -c \"\\\\l\")",
+      "Bash(psql -d postgres -c \"\\\\du\")",
+      "Bash(psql *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm run *)",
+      "Bash(pkill -f \"uvicorn main:app\")"
     ]
   }
 }

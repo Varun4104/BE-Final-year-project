@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, AlertTriangle, CheckCircle, X, Eye, Download, Trash2, Loader, Globe, ExternalLink } from "lucide-react"
+import { Upload, FileText, AlertTriangle, CheckCircle, X, Eye, Download, Trash2, Loader, Globe, ExternalLink, Sparkles, BookOpen } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -47,8 +47,25 @@ interface PlagiarismResult {
   top_matches: TopMatch[]
   web_matches?: WebMatch[]
   status: "analyzing" | "passed" | "rejected" | "pending_review"
+  isWebCheck: boolean
 }
 
+function verdictStyle(verdict?: string): { bg: string; text: string; border: string; label: string } {
+  const v = (verdict || "").toLowerCase()
+  if (v.includes("original") || v.includes("no plagiarism")) {
+    return { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-200 dark:border-emerald-800", label: "Original" }
+  }
+  if (v.includes("duplicate") || v.includes("plagiar")) {
+    return { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-700 dark:text-red-400", border: "border-red-200 dark:border-red-800", label: "Duplicate" }
+  }
+  return { bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-400", border: "border-amber-200 dark:border-amber-800", label: "Similar" }
+}
+
+function similarityColor(pct: number) {
+  if (pct >= 50) return "text-red-600"
+  if (pct >= 20) return "text-amber-600"
+  return "text-emerald-600"
+}
 
 export function PlagiarismView() {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
@@ -105,6 +122,7 @@ export function PlagiarismView() {
         top_matches: data.top_matches || [],
         web_matches: data.web_matches || [],
         status: (data.plagiarism_score || 0) > 20 ? "pending_review" : "passed",
+        isWebCheck: useWeb,
       }
 
       setResults((prev) => [...prev, result])
@@ -123,7 +141,6 @@ export function PlagiarismView() {
       setResults((prev) =>
         prev.map((result) => (result.file_id === currentResult.file_id ? { ...result, status: "passed" } : result)),
       )
-      console.log(`[v0] Paper "${currentResult.filename}" has been accepted`)
     }
     setShowDecisionDialog(false)
     setCurrentResult(null)
@@ -134,9 +151,6 @@ export function PlagiarismView() {
       setResults((prev) =>
         prev.map((result) => (result.file_id === currentResult.file_id ? { ...result, status: "rejected" } : result)),
       )
-      console.log(
-        `[v0] Paper "${currentResult.filename}" has been rejected due to ${currentResult.plagiarism_score}% similarity`,
-      )
     }
     setShowDecisionDialog(false)
     setCurrentResult(null)
@@ -145,16 +159,8 @@ export function PlagiarismView() {
   const preparePieChartData = (result: PlagiarismResult) => {
     const originalContent = 100 - result.plagiarism_score
     return [
-      {
-        name: "Original Content",
-        value: originalContent,
-        color: "#10b981",
-      },
-      {
-        name: "Similar Content",
-        value: result.plagiarism_score,
-        color: result.plagiarism_score > 20 ? "#ef4444" : "#f59e0b",
-      },
+      { name: "Original Content", value: originalContent, color: "#10b981" },
+      { name: "Similar Content", value: result.plagiarism_score, color: result.plagiarism_score > 20 ? "#ef4444" : "#f59e0b" },
     ]
   }
 
@@ -163,17 +169,8 @@ export function PlagiarismView() {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5
     const x = cx + radius * Math.cos(-midAngle * RADIAN)
     const y = cy + radius * Math.sin(-midAngle * RADIAN)
-
     return (
-      <text
-        x={x}
-        y={y}
-        fill="white"
-        textAnchor={x > cx ? "start" : "end"}
-        dominantBaseline="central"
-        fontSize="12"
-        fontWeight="bold"
-      >
+      <text x={x} y={y} fill="white" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize="12" fontWeight="bold">
         {`${(percent * 100).toFixed(0)}%`}
       </text>
     )
@@ -244,7 +241,6 @@ export function PlagiarismView() {
             <input id="file-upload" type="file" multiple accept=".pdf" className="hidden" onChange={handleFileUpload} />
           </div>
 
-          {/* Uploaded Files */}
           {uploadedFiles.length > 0 && (
             <div className="mt-6 space-y-3">
               <h3 className="font-medium text-foreground">Uploaded Files</h3>
@@ -259,21 +255,10 @@ export function PlagiarismView() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button size="sm" onClick={() => analyzePlagiarism(file, false)} disabled={isAnalyzing} className="gap-2">
-                      {isAnalyzing ? (
-                        <>
-                          <Loader className="h-4 w-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        "Local Check"
-                      )}
+                      {isAnalyzing ? <><Loader className="h-4 w-4 animate-spin" />Analyzing...</> : "Local Check"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => analyzePlagiarism(file, true)} disabled={isAnalyzing} className="gap-2">
-                      {isAnalyzing ? (
-                        <Loader className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Globe className="h-4 w-4" />
-                      )}
+                      {isAnalyzing ? <Loader className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
                       Web Check
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => removeFile(index)}>
@@ -305,35 +290,29 @@ export function PlagiarismView() {
                       <div className="flex items-center gap-2 mt-1">
                         {result.status === "passed" ? (
                           <Badge variant="default" className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Accepted
+                            <CheckCircle className="h-3 w-3 mr-1" />Accepted
                           </Badge>
                         ) : result.status === "rejected" ? (
                           <Badge variant="destructive">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Rejected
+                            <AlertTriangle className="h-3 w-3 mr-1" />Rejected
                           </Badge>
                         ) : (
                           <Badge variant="secondary">
-                            <Eye className="h-3 w-3 mr-1" />
-                            Pending Review
+                            <Eye className="h-3 w-3 mr-1" />Pending Review
                           </Badge>
                         )}
                         <span className="text-sm text-muted-foreground">{result.plagiarism_score}% similarity</span>
+                        {result.isWebCheck && (
+                          <Badge variant="outline" className="gap-1 text-xs">
+                            <Globe className="h-3 w-3" />Web Check
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setCurrentResult(result)
-                        setShowDetailedAnalysis(true)
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View Details
+                    <Button size="sm" variant="outline" onClick={() => { setCurrentResult(result); setShowDetailedAnalysis(true) }}>
+                      <Eye className="h-4 w-4 mr-1" />View Details
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => removeResult(index)}>
                       <X className="h-4 w-4" />
@@ -349,20 +328,10 @@ export function PlagiarismView() {
                     </div>
                     <Progress value={result.plagiarism_score} className="h-2" />
                   </div>
-
                   <div className="h-32">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie
-                          data={preparePieChartData(result)}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={renderCustomLabel}
-                          outerRadius={50}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
+                        <Pie data={preparePieChartData(result)} cx="50%" cy="50%" labelLine={false} label={renderCustomLabel} outerRadius={50} dataKey="value">
                           {preparePieChartData(result).map((entry, idx) => (
                             <Cell key={`cell-${idx}`} fill={entry.color} />
                           ))}
@@ -377,9 +346,7 @@ export function PlagiarismView() {
                   <Alert variant="destructive" className="mb-3">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      <strong>Paper Rejected:</strong> This paper has been rejected due to high similarity (
-                      {result.plagiarism_score}%) with existing papers in your library. The similarity exceeds the 20%
-                      threshold.
+                      <strong>Paper Rejected:</strong> This paper has been rejected due to high similarity ({result.plagiarism_score}%) exceeding the 20% threshold.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -388,25 +355,20 @@ export function PlagiarismView() {
                   <Alert className="mb-3 border-green-200 bg-green-50">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-800">
-                      <strong>Paper Accepted:</strong> This paper has been accepted with
-                      {result.plagiarism_score}% similarity, which is within acceptable limits.
+                      <strong>Paper Accepted:</strong> {result.plagiarism_score}% similarity is within acceptable limits.
                     </AlertDescription>
                   </Alert>
                 )}
 
-                {/* Score breakdown for web checks */}
-                {(result.local_score !== undefined || result.web_score !== undefined) && (
-                  <div className="flex gap-4 text-xs text-muted-foreground bg-muted/50 rounded-md p-2">
-                    {result.local_score !== undefined && (
-                      <span>Library: <strong>{result.local_score}%</strong></span>
-                    )}
-                    {result.web_score !== undefined && (
-                      <span>Web (arXiv): <strong>{result.web_score}%</strong></span>
-                    )}
+                {/* Score breakdown — only for web checks */}
+                {result.isWebCheck && result.web_score !== undefined && (
+                  <div className="flex gap-4 text-xs text-muted-foreground bg-muted/50 rounded-md p-2 mb-3">
+                    <span>Web (arXiv): <strong>{result.web_score}%</strong></span>
                   </div>
                 )}
 
-                {result.top_matches && result.top_matches.length > 0 && (
+                {/* Local matches — only for local checks */}
+                {!result.isWebCheck && result.top_matches && result.top_matches.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium text-foreground mb-2">
                       Library Matches ({result.top_matches.length})
@@ -418,7 +380,6 @@ export function PlagiarismView() {
                             <h5 className="font-medium text-foreground text-sm">{match.file_name}</h5>
                             <Badge variant="outline">{match.similarity}% match</Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">ID: {match.file_id}</p>
                           <p className="text-sm text-muted-foreground italic line-clamp-2">
                             "{match.excerpt.substring(0, 100)}..."
                           </p>
@@ -428,58 +389,96 @@ export function PlagiarismView() {
                   </div>
                 )}
 
-                {result.web_matches && result.web_matches.length > 0 && (
+                {/* Web matches — visually rich cards */}
+                {result.isWebCheck && result.web_matches && result.web_matches.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-1">
-                      <Globe className="h-3.5 w-3.5" />
-                      Web Sources — arXiv ({result.web_matches.length})
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                      <Globe className="h-4 w-4 text-blue-500" />
+                      Web Sources — arXiv
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">({result.web_matches.length} found)</span>
                     </h4>
-                    <div className="space-y-2">
-                      {result.web_matches.map((match, matchIndex) => (
-                        <div key={matchIndex} className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 p-3 rounded-md">
-                          <div className="flex items-start justify-between mb-1 gap-2">
-                            <h5 className="font-medium text-foreground text-sm">{match.title}</h5>
-                            <Badge variant="outline" className="shrink-0">{match.similarity}% match</Badge>
+                    <div className="space-y-3">
+                      {result.web_matches.map((match, matchIndex) => {
+                        const vs = verdictStyle(match.verdict)
+                        return (
+                          <div key={matchIndex} className={`rounded-xl border ${vs.border} overflow-hidden`}>
+                            {/* Card header */}
+                            <div className={`${vs.bg} px-4 py-3 flex items-start justify-between gap-3`}>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-foreground leading-snug">{match.title}</p>
+                                {match.authors && match.authors.length > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{match.authors.join(", ")}</p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <span className={`text-xl font-bold ${similarityColor(match.similarity)}`}>
+                                  {match.similarity}%
+                                </span>
+                                <Badge className={`text-[10px] px-2 py-0 ${vs.bg} ${vs.text} border ${vs.border}`}>
+                                  {vs.label}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Similarity bar */}
+                            <div className="px-4 pt-2 pb-1 bg-background">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground w-14 shrink-0">Similarity</span>
+                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full ${match.similarity >= 50 ? "bg-red-500" : match.similarity >= 20 ? "bg-amber-500" : "bg-emerald-500"}`}
+                                    style={{ width: `${match.similarity}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground w-8 text-right">{match.similarity}%</span>
+                              </div>
+                            </div>
+
+                            {/* Excerpt */}
+                            <div className="px-4 py-2 bg-background">
+                              <div className="flex items-start gap-1.5">
+                                <BookOpen className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                <p className="text-xs text-muted-foreground italic line-clamp-3">
+                                  "{match.excerpt}"
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* AI Analysis */}
+                            {match.analysis && (
+                              <div className="mx-4 mb-3 rounded-lg bg-muted/60 border border-border p-3">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                                  <span className="text-[10px] font-bold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+                                    AI Analysis
+                                  </span>
+                                  {match.verdict && (
+                                    <span className={`ml-auto text-[10px] font-semibold uppercase ${vs.text}`}>
+                                      {match.verdict}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-foreground leading-relaxed">{match.analysis}</p>
+                              </div>
+                            )}
+
+                            {/* Footer */}
+                            {match.url && (
+                              <div className="px-4 pb-3 bg-background">
+                                <a
+                                  href={match.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  View on arXiv
+                                </a>
+                              </div>
+                            )}
                           </div>
-                          {match.authors && match.authors.length > 0 && (
-                            <p className="text-xs text-muted-foreground mb-1">{match.authors.join(", ")}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground italic mb-2 line-clamp-2">
-                            "{match.excerpt}"
-                          </p>
-                          {match.analysis && (
-                            <div className="mt-2 mb-2 p-2 bg-white/50 dark:bg-black/20 rounded border border-blue-100 dark:border-blue-900/50">
-                              <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
-                                <Loader className="h-2.5 w-2.5" /> AI Analysis — {match.verdict}
-                              </p>
-                              <p className="text-xs text-foreground leading-relaxed">
-                                {match.analysis}
-                              </p>
-                            </div>
-                          )}
-                          {match.analysis && (
-                            <div className="mt-2 mb-2 p-2 bg-white/50 dark:bg-black/20 rounded border border-blue-100 dark:border-blue-900/50">
-                              <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
-                                <Loader className="h-2.5 w-2.5" /> AI Analysis — {match.verdict}
-                              </p>
-                              <p className="text-xs text-foreground leading-relaxed">
-                                {match.analysis}
-                              </p>
-                            </div>
-                          )}
-                          {match.url && (
-                            <a
-                              href={match.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline flex items-center gap-1"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              View on arXiv
-                            </a>
-                          )}
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -495,15 +494,9 @@ export function PlagiarismView() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {currentResult && currentResult.plagiarism_score > 20 ? (
-                <>
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                  High Similarity Detected - Review Required
-                </>
+                <><AlertTriangle className="h-5 w-5 text-destructive" />High Similarity Detected - Review Required</>
               ) : (
-                <>
-                  <CheckCircle className="h-5 w-5 text-green-600" />
-                  Analysis Complete - Low Similarity
-                </>
+                <><CheckCircle className="h-5 w-5 text-green-600" />Analysis Complete - Low Similarity</>
               )}
             </DialogTitle>
             <DialogDescription>
@@ -513,9 +506,7 @@ export function PlagiarismView() {
           {currentResult && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div
-                  className={`p-4 rounded-lg ${currentResult.plagiarism_score > 20 ? "bg-destructive/10" : "bg-green-50"}`}
-                >
+                <div className={`p-4 rounded-lg ${currentResult.plagiarism_score > 20 ? "bg-destructive/10" : "bg-green-50"}`}>
                   <h3 className="font-medium text-foreground mb-2">{currentResult.filename}</h3>
                   <div className="grid grid-cols-2 gap-4 text-sm mb-3">
                     <div>
@@ -523,8 +514,14 @@ export function PlagiarismView() {
                       <div className="font-bold text-lg">{currentResult.plagiarism_score}%</div>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Matched Papers:</span>
-                      <div className="font-bold text-lg">{currentResult.top_matches.length}</div>
+                      <span className="text-muted-foreground">
+                        {currentResult.isWebCheck ? "Web Matches:" : "Matched Papers:"}
+                      </span>
+                      <div className="font-bold text-lg">
+                        {currentResult.isWebCheck
+                          ? (currentResult.web_matches?.length ?? 0)
+                          : currentResult.top_matches.length}
+                      </div>
                     </div>
                   </div>
                   <Progress value={currentResult.plagiarism_score} className="h-2" />
@@ -534,16 +531,7 @@ export function PlagiarismView() {
                   <h4 className="text-sm font-medium mb-2">Content Analysis</h4>
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie
-                        data={preparePieChartData(currentResult)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={renderCustomLabel}
-                        outerRadius={70}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
+                      <Pie data={preparePieChartData(currentResult)} cx="50%" cy="50%" labelLine={false} label={renderCustomLabel} outerRadius={70} dataKey="value">
                         {preparePieChartData(currentResult).map((entry, idx) => (
                           <Cell key={`cell-${idx}`} fill={entry.color} />
                         ))}
@@ -559,22 +547,20 @@ export function PlagiarismView() {
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Warning:</strong> This paper exceeds the 20% similarity threshold with
-                    {currentResult.plagiarism_score}% similarity detected. Carefully review the matched content below
-                    before making your decision.
+                    <strong>Warning:</strong> This paper exceeds the 20% similarity threshold with {currentResult.plagiarism_score}% similarity detected.
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Alert className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    <strong>Good:</strong> This paper shows {currentResult.plagiarism_score}% similarity, which is
-                    within acceptable limits.
+                    <strong>Good:</strong> This paper shows {currentResult.plagiarism_score}% similarity, within acceptable limits.
                   </AlertDescription>
                 </Alert>
               )}
 
-              {currentResult.top_matches && currentResult.top_matches.length > 0 && (
+              {/* Dialog: local matches only for local check */}
+              {!currentResult.isWebCheck && currentResult.top_matches && currentResult.top_matches.length > 0 && (
                 <div className="max-h-60 overflow-y-auto">
                   <h4 className="font-medium mb-2">Matched Papers:</h4>
                   {currentResult.top_matches.map((match, idx) => (
@@ -583,25 +569,41 @@ export function PlagiarismView() {
                         <span className="font-medium text-sm">{match.file_name}</span>
                         <Badge variant="outline">{match.similarity}%</Badge>
                       </div>
-                      <div className="text-xs text-muted-foreground mb-2">ID: {match.file_id}</div>
                       <p className="text-xs text-muted-foreground italic">{match.excerpt.substring(0, 150)}...</p>
                     </div>
                   ))}
                 </div>
               )}
+
+              {/* Dialog: web matches summary for web check */}
+              {currentResult.isWebCheck && currentResult.web_matches && currentResult.web_matches.length > 0 && (
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  <h4 className="font-medium mb-2 flex items-center gap-1.5">
+                    <Globe className="h-4 w-4 text-blue-500" />Web Matches:
+                  </h4>
+                  {currentResult.web_matches.map((match, idx) => {
+                    const vs = verdictStyle(match.verdict)
+                    return (
+                      <div key={idx} className={`p-3 rounded-lg border ${vs.border} ${vs.bg}`}>
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-medium text-sm">{match.title}</span>
+                          <Badge className={`${vs.bg} ${vs.text} border ${vs.border} text-xs`}>{match.similarity}%</Badge>
+                        </div>
+                        {match.verdict && <p className={`text-xs font-semibold ${vs.text}`}>{match.verdict}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowDecisionDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setShowDecisionDialog(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleRejectPaper} className="bg-red-600 hover:bg-red-700">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Reject Paper
+              <Trash2 className="h-4 w-4 mr-2" />Reject Paper
             </Button>
             <Button variant="default" onClick={handleAcceptPaper} className="bg-green-600 hover:bg-green-700">
-              <Download className="h-4 w-4 mr-2" />
-              Accept Paper
+              <Download className="h-4 w-4 mr-2" />Accept Paper
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -625,16 +627,7 @@ export function PlagiarismView() {
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie
-                            data={preparePieChartData(currentResult)}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={renderCustomLabel}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
+                          <Pie data={preparePieChartData(currentResult)} cx="50%" cy="50%" labelLine={false} label={renderCustomLabel} outerRadius={80} dataKey="value">
                             {preparePieChartData(currentResult).map((entry, idx) => (
                               <Cell key={`cell-${idx}`} fill={entry.color} />
                             ))}
@@ -664,25 +657,17 @@ export function PlagiarismView() {
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span>Matched Papers:</span>
-                        <span className="font-medium">{currentResult.top_matches.length}</span>
+                        <span>{currentResult.isWebCheck ? "Web Matches:" : "Matched Papers:"}</span>
+                        <span className="font-medium">
+                          {currentResult.isWebCheck
+                            ? (currentResult.web_matches?.length ?? 0)
+                            : currentResult.top_matches.length}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Status:</span>
-                        <Badge
-                          variant={
-                            currentResult.status === "passed"
-                              ? "default"
-                              : currentResult.status === "rejected"
-                                ? "destructive"
-                                : "secondary"
-                          }
-                        >
-                          {currentResult.status === "passed"
-                            ? "Accepted"
-                            : currentResult.status === "rejected"
-                              ? "Rejected"
-                              : "Pending"}
+                        <Badge variant={currentResult.status === "passed" ? "default" : currentResult.status === "rejected" ? "destructive" : "secondary"}>
+                          {currentResult.status === "passed" ? "Accepted" : currentResult.status === "rejected" ? "Rejected" : "Pending"}
                         </Badge>
                       </div>
                     </div>
@@ -690,7 +675,8 @@ export function PlagiarismView() {
                 </Card>
               </div>
 
-              {currentResult.top_matches && currentResult.top_matches.length > 0 && (
+              {/* Detailed: local matches */}
+              {!currentResult.isWebCheck && currentResult.top_matches && currentResult.top_matches.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Matched Papers Details</CardTitle>
@@ -703,7 +689,6 @@ export function PlagiarismView() {
                             <h4 className="font-medium">{match.file_name}</h4>
                             <Badge variant="outline">{match.similarity}% match</Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mb-2">File ID: {match.file_id}</p>
                           <p className="text-sm text-muted-foreground italic">
                             Excerpt: {match.excerpt.substring(0, 200)}...
                           </p>
@@ -713,12 +698,67 @@ export function PlagiarismView() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Detailed: web matches */}
+              {currentResult.isWebCheck && currentResult.web_matches && currentResult.web_matches.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-blue-500" />Web Source Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {currentResult.web_matches.map((match, idx) => {
+                        const vs = verdictStyle(match.verdict)
+                        return (
+                          <div key={idx} className={`rounded-xl border ${vs.border} overflow-hidden`}>
+                            <div className={`${vs.bg} px-4 py-3 flex items-start justify-between gap-3`}>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm text-foreground">{match.title}</p>
+                                {match.authors && match.authors.length > 0 && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">{match.authors.join(", ")}</p>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <span className={`text-xl font-bold ${similarityColor(match.similarity)}`}>{match.similarity}%</span>
+                                <Badge className={`text-[10px] px-2 py-0 ${vs.bg} ${vs.text} border ${vs.border}`}>{vs.label}</Badge>
+                              </div>
+                            </div>
+                            <div className="px-4 py-3 bg-background space-y-3">
+                              <div className="flex items-start gap-1.5">
+                                <BookOpen className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                <p className="text-xs text-muted-foreground italic">"{match.excerpt}"</p>
+                              </div>
+                              {match.analysis && (
+                                <div className="rounded-lg bg-muted/60 border border-border p-3">
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                                    <span className="text-[10px] font-bold uppercase tracking-wide text-violet-600 dark:text-violet-400">AI Analysis</span>
+                                    {match.verdict && (
+                                      <span className={`ml-auto text-[10px] font-semibold uppercase ${vs.text}`}>{match.verdict}</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-foreground leading-relaxed">{match.analysis}</p>
+                                </div>
+                              )}
+                              {match.url && (
+                                <a href={match.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+                                  <ExternalLink className="h-3 w-3" />View on arXiv
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDetailedAnalysis(false)}>
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setShowDetailedAnalysis(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

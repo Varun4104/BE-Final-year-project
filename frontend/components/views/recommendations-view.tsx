@@ -14,11 +14,11 @@ import {
   BookOpen,
   ExternalLink,
   RefreshCw,
-  Settings,
   Target,
   Brain,
   Zap,
   Search,
+  FileSearch,
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { API_URL } from "@/lib/config"
@@ -40,38 +40,35 @@ interface Recommendation {
   source: "arxiv" | "pubmed" | "ieee" | "acm" | "springer"
 }
 
-interface RecommendationCategory {
-  id: string
-  title: string
-  description: string
-  icon: any
-  count: number
-  recommendations: Recommendation[]
-}
+const CATEGORIES = [
+  { id: "trending",     label: "Trending",      icon: TrendingUp, color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200" },
+  { id: "similar",      label: "Similar",        icon: Target,     color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  { id: "collaborative",label: "Collaborative",  icon: Users,      color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
+  { id: "recent",       label: "Recent",         icon: Calendar,   color: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" },
+  { id: "highly-cited", label: "Highly Cited",   icon: Star,       color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200" },
+] as const
 
 export function RecommendationsView() {
   const { navigate } = useSearch()
 
   const [activeCategory, setActiveCategory] = useState("all")
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
   const [domain, setDomain] = useState("machine learning")
-  const [mockRecommendations, setRecommendations] = useState<Recommendation[]>([])
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async (searchDomain = domain) => {
     setIsFetching(true)
     try {
-      const res = await fetch(`${API_URL}/recommendations?domain=${encodeURIComponent(domain)}`)
+      const res = await fetch(`${API_URL}/recommendations?domain=${encodeURIComponent(searchDomain)}`)
       const data = await res.json()
-      // Map API response to Recommendation interface
-      const mappedData = data.map((item: any) => ({
+      const mapped: Recommendation[] = data.map((item: any) => ({
         ...item,
         category: item.category || "trending",
         source: item.source || "arxiv",
-        relevanceScore: item.relevanceScore || 0.9,
-        reason: item.reason || "Recommended for you"
+        relevanceScore: item.relevanceScore ?? 0.9,
+        reason: item.reason || "Recommended for you",
       }))
-      setRecommendations(mappedData)
+      setRecommendations(mapped)
     } catch (error) {
       console.error("Error fetching recommendations:", error)
     } finally {
@@ -84,94 +81,32 @@ export function RecommendationsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const categories: RecommendationCategory[] = [
-    {
-      id: "trending",
-      title: "Trending Papers",
-      description: "Popular papers gaining attention in your field",
-      icon: TrendingUp,
-      count: mockRecommendations.filter((r) => r.category === "trending").length,
-      recommendations: mockRecommendations.filter((r) => r.category === "trending"),
-    },
-    {
-      id: "similar",
-      title: "Similar to Your Library",
-      description: "Papers similar to ones you've already read",
-      icon: Target,
-      count: mockRecommendations.filter((r) => r.category === "similar").length,
-      recommendations: mockRecommendations.filter((r) => r.category === "similar"),
-    },
-    {
-      id: "collaborative",
-      title: "Collaborative Filtering",
-      description: "Papers read by researchers with similar interests",
-      icon: Users,
-      count: mockRecommendations.filter((r) => r.category === "collaborative").length,
-      recommendations: mockRecommendations.filter((r) => r.category === "collaborative"),
-    },
-    {
-      id: "recent",
-      title: "Recent Publications",
-      description: "Latest papers in your research areas",
-      icon: Calendar,
-      count: mockRecommendations.filter((r) => r.category === "recent").length,
-      recommendations: mockRecommendations.filter((r) => r.category === "recent"),
-    },
-    {
-      id: "highly-cited",
-      title: "Highly Cited",
-      description: "Influential papers with high citation counts",
-      icon: Star,
-      count: mockRecommendations.filter((r) => r.category === "highly-cited").length,
-      recommendations: mockRecommendations.filter((r) => r.category === "highly-cited"),
-    },
-  ]
+  const countFor = (cat: string) => recommendations.filter((r) => r.category === cat).length
 
-  const refreshRecommendations = () => {
-    setIsRefreshing(true)
-    fetchRecommendations().finally(() => setIsRefreshing(false))
-  }
+  const displayed =
+    activeCategory === "all"
+      ? recommendations
+      : recommendations.filter((r) => r.category === activeCategory)
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "trending":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
-      case "similar":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-      case "collaborative":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-      case "recent":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-      case "highly-cited":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
-    }
-  }
-
-  const displayedRecommendations =
-    activeCategory === "all" ? mockRecommendations : mockRecommendations.filter((r) => r.category === activeCategory)
+  const avgRelevance =
+    recommendations.length > 0
+      ? Math.round((recommendations.reduce((s, r) => s + r.relevanceScore, 0) / recommendations.length) * 100)
+      : 0
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-balance">AI Recommendations</h1>
-          <p className="text-muted-foreground text-pretty">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold">AI Recommendations</h1>
+          <p className="text-muted-foreground">
             Discover relevant papers tailored to your research interests using advanced AI algorithms.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={refreshRecommendations} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button variant="outline">
-            <Settings className="h-4 w-4 mr-2" />
-            Preferences
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => fetchRecommendations()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Domain Search */}
@@ -191,38 +126,32 @@ export function RecommendationsView() {
             placeholder="e.g. machine learning, AI healthcare, NLP..."
             className="flex-1"
           />
-          <Button onClick={fetchRecommendations} disabled={isFetching} className="gap-2 shrink-0">
+          <Button onClick={() => fetchRecommendations()} disabled={isFetching} className="gap-2 shrink-0">
             {isFetching ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             Search arXiv
           </Button>
         </CardContent>
       </Card>
 
-      {/* Recommendation Stats */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Brain className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-2xl font-bold">{mockRecommendations.length}</p>
-                <p className="text-sm text-muted-foreground">New Recommendations</p>
+                <p className="text-2xl font-bold">{recommendations.length}</p>
+                <p className="text-sm text-muted-foreground">Recommendations</p>
               </div>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Zap className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-2xl font-bold">
-                  {Math.round(
-                    (mockRecommendations.reduce((acc, r) => acc + r.relevanceScore, 0) / mockRecommendations.length) *
-                      100,
-                  )}
-                  %
-                </p>
+                <p className="text-2xl font-bold">{avgRelevance}%</p>
                 <p className="text-sm text-muted-foreground">Avg Relevance Score</p>
               </div>
             </div>
@@ -230,202 +159,173 @@ export function RecommendationsView() {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Calendar className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-2xl font-bold">Daily</p>
-                <p className="text-sm text-muted-foreground">Update Frequency</p>
+                <p className="text-2xl font-bold">arXiv</p>
+                <p className="text-sm text-muted-foreground">Source</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Category Tabs */}
+      {/* Tabs + Paper List */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lightbulb className="h-5 w-5" />
-            Recommendation Categories
+            Recommended Papers
           </CardTitle>
-          <CardDescription>
-            Explore different types of AI-powered recommendations based on various algorithms
-          </CardDescription>
+          <CardDescription>AI-powered recommendations across different categories</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="all">All ({mockRecommendations.length})</TabsTrigger>
-              {categories.map((category) => {
-                const Icon = category.icon
-                return (
-                  <TabsTrigger key={category.id} value={category.id} className="flex items-center gap-1">
-                    <Icon className="h-3 w-3" />
-                    {category.count}
-                  </TabsTrigger>
-                )
-              })}
+            <TabsList className="flex flex-wrap h-auto gap-1 mb-6">
+              <TabsTrigger value="all">All ({recommendations.length})</TabsTrigger>
+              {CATEGORIES.map(({ id, label, icon: Icon }) => (
+                <TabsTrigger key={id} value={id} className="gap-1">
+                  <Icon className="h-3 w-3" />
+                  {label} ({countFor(id)})
+                </TabsTrigger>
+              ))}
             </TabsList>
 
-            <TabsContent value="all" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {categories.map((category) => {
-                  const Icon = category.icon
-                  return (
-                    <Card key={category.id} className="cursor-pointer hover:bg-accent/50 transition-colors">
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="p-2 rounded-lg bg-primary/10">
-                            <Icon className="h-5 w-5 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-medium">{category.title}</h3>
-                            <p className="text-sm text-muted-foreground">{category.count} papers</p>
-                          </div>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{category.description}</p>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            </TabsContent>
-
-            {categories.map((category) => (
-              <TabsContent key={category.id} value={category.id} className="mt-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
-                    <category.icon className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-medium">{category.title}</h3>
-                    <Badge variant="secondary">{category.count} papers</Badge>
-                  </div>
-                  <p className="text-muted-foreground mb-6">{category.description}</p>
-
-                  <div className="space-y-4">
-                    {category.recommendations.map((paper) => (
-                      <Card key={paper.id} className="hover:bg-accent/50 transition-colors">
-                        <CardContent className="pt-6">
-                          <div className="space-y-3">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-medium text-balance">{paper.title}</h3>
-                                  <Badge className={getCategoryColor(paper.category)}>
-                                    {paper.category.replace("-", " ")}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  {paper.authors.slice(0, 3).join(", ")}
-                                  {paper.authors.length > 3 && " et al."} • {paper.year} • {paper.venue}
-                                </p>
-                                <p className="text-sm text-pretty">{paper.abstract}</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {paper.keywords.map((keyword, index) => (
-                                    <Badge key={index} variant="outline" className="text-xs">
-                                      {keyword}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="text-right space-y-2">
-                                <div className="flex items-center gap-1 text-sm">
-                                  <Star className="h-4 w-4 text-yellow-500" />
-                                  {Math.round(paper.relevanceScore * 100)}%
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                  {paper.citationCount.toLocaleString()} citations
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="bg-accent/30 rounded-lg p-3">
-                              <p className="text-sm">
-                                <span className="font-medium">Why recommended:</span> {paper.reason}
-                              </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 pt-2 flex-wrap">
-                              <Button size="sm" onClick={() => navigate("upload")}>
-                                <BookOpen className="h-4 w-4 mr-1" />
-                                Upload to Library
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => navigate("plagiarism")}>
-                                Check Similarity
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => navigate("search")}>
-                                Find Similar
-                              </Button>
-                              {paper.doi && (
-                                <a href={paper.doi} target="_blank" rel="noopener noreferrer">
-                                  <Button variant="outline" size="sm">
-                                    <ExternalLink className="h-4 w-4 mr-1" />
-                                    View on arXiv
-                                  </Button>
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
+            {/* Shared content for all tab values */}
+            {["all", ...CATEGORIES.map((c) => c.id)].map((tabId) => (
+              <TabsContent key={tabId} value={tabId}>
+                <PaperList
+                  papers={tabId === "all" ? recommendations : recommendations.filter((r) => r.category === tabId)}
+                  isFetching={isFetching}
+                  navigate={navigate}
+                />
               </TabsContent>
             ))}
           </Tabs>
         </CardContent>
       </Card>
+    </div>
+  )
+}
 
-      {/* Recommendation Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recommendation Preferences</CardTitle>
-          <CardDescription>Customize how AI generates recommendations for you</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h4 className="font-medium">Research Interests</h4>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Natural Language Processing",
-                  "Machine Learning",
-                  "Computer Vision",
-                  "AI Safety",
-                  "Deep Learning",
-                ].map((interest, index) => (
-                  <Badge key={index} variant="secondary">
-                    {interest}
-                  </Badge>
-                ))}
-              </div>
-              <Button variant="outline" size="sm">
-                Edit Interests
-              </Button>
-            </div>
-            <div className="space-y-4">
-              <h4 className="font-medium">Recommendation Frequency</h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Daily updates</span>
-                  <Badge variant="outline">Enabled</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Weekly digest</span>
-                  <Badge variant="outline">Enabled</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">Trending alerts</span>
-                  <Badge variant="outline">Disabled</Badge>
-                </div>
-              </div>
-              <Button variant="outline" size="sm">
-                Manage Notifications
-              </Button>
-            </div>
+function PaperList({
+  papers,
+  isFetching,
+  navigate,
+}: {
+  papers: Recommendation[]
+  isFetching: boolean
+  navigate: (view: string) => void
+}) {
+  if (isFetching) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="border border-border rounded-xl p-5 animate-pulse space-y-3">
+            <div className="h-4 bg-muted rounded w-3/4" />
+            <div className="h-3 bg-muted rounded w-1/3" />
+            <div className="h-3 bg-muted rounded w-full" />
+            <div className="h-3 bg-muted rounded w-5/6" />
           </div>
-        </CardContent>
-      </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (papers.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground gap-3">
+        <FileSearch className="h-10 w-10 opacity-40" />
+        <p className="font-medium">No papers found</p>
+        <p className="text-sm">Try searching a different domain or refreshing.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {papers.map((paper) => {
+        const cat = CATEGORIES.find((c) => c.id === paper.category)
+        const Icon = cat?.icon ?? TrendingUp
+        return (
+          <Card key={paper.id} className="hover:bg-accent/40 transition-colors">
+            <CardContent className="pt-5 pb-4">
+              <div className="space-y-3">
+                {/* Title row */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <div className="flex items-start gap-2 flex-wrap">
+                      <h3 className="font-semibold text-sm leading-snug">{paper.title}</h3>
+                      {cat && (
+                        <Badge className={`${cat.color} text-[10px] shrink-0 gap-1`}>
+                          <Icon className="h-2.5 w-2.5" />
+                          {cat.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {paper.authors.slice(0, 3).join(", ")}
+                      {paper.authors.length > 3 && " et al."} · {paper.year}
+                      {paper.venue && ` · ${paper.venue}`}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0 space-y-1">
+                    <div className="flex items-center gap-1 justify-end text-sm font-semibold text-yellow-600">
+                      <Star className="h-3.5 w-3.5" />
+                      {Math.round(paper.relevanceScore * 100)}%
+                    </div>
+                    <p className="text-xs text-muted-foreground">{paper.citationCount.toLocaleString()} citations</p>
+                  </div>
+                </div>
+
+                {/* Abstract */}
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">{paper.abstract}</p>
+
+                {/* Keywords */}
+                {paper.keywords.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {paper.keywords.map((kw, i) => (
+                      <Badge key={i} variant="outline" className="text-[10px] px-1.5 py-0">
+                        {kw}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {/* Why recommended */}
+                <div className="bg-accent/40 rounded-lg px-3 py-2">
+                  <p className="text-xs">
+                    <span className="font-medium">Why recommended: </span>
+                    {paper.reason}
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-1 flex-wrap">
+                  <Button size="sm" onClick={() => navigate("upload")} className="h-7 text-xs gap-1">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Add to Library
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate("plagiarism")}>
+                    Check Similarity
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => navigate("search")}>
+                    Find Similar
+                  </Button>
+                  {paper.doi && (
+                    <a href={paper.doi} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        View on arXiv
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })}
     </div>
   )
 }
